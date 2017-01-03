@@ -83,6 +83,7 @@ public class TimePickerDialog extends DialogFragment implements
     private static final String KEY_VIBRATE = "vibrate";
     private static final String KEY_DISMISS = "dismiss";
     private static final String KEY_SELECTABLE_TIMES = "selectable_times";
+    private static final String KEY_UNSELECTABLE_TIMES = "unselectable_times";
     private static final String KEY_MIN_TIME = "min_time";
     private static final String KEY_MAX_TIME = "max_time";
     private static final String KEY_ENABLE_SECONDS = "enable_seconds";
@@ -136,6 +137,7 @@ public class TimePickerDialog extends DialogFragment implements
     private int mAccentColor = -1;
     private boolean mDismissOnPause;
     private Timepoint[] mSelectableTimes;
+    private Timepoint[] mUnselectableTimes;
     private Timepoint mMinTime;
     private Timepoint mMaxTime;
     private boolean mEnableSeconds;
@@ -332,6 +334,11 @@ public class TimePickerDialog extends DialogFragment implements
         Arrays.sort(mSelectableTimes);
     }
 
+    public void setUnselectableTimes(Timepoint[] unselectableTimes) {
+        mUnselectableTimes = unselectableTimes;
+        Arrays.sort(mUnselectableTimes);
+    }
+
     /**
      * Set the interval for selectable times in the TimePickerDialog
      * This is a convenience wrapper around setSelectableTimes
@@ -473,6 +480,7 @@ public class TimePickerDialog extends DialogFragment implements
             mVibrate = savedInstanceState.getBoolean(KEY_VIBRATE);
             mDismissOnPause = savedInstanceState.getBoolean(KEY_DISMISS);
             mSelectableTimes = (Timepoint[])savedInstanceState.getParcelableArray(KEY_SELECTABLE_TIMES);
+            mUnselectableTimes = (Timepoint[])savedInstanceState.getParcelableArray(KEY_UNSELECTABLE_TIMES);
             mMinTime = savedInstanceState.getParcelable(KEY_MIN_TIME);
             mMaxTime = savedInstanceState.getParcelable(KEY_MAX_TIME);
             mEnableSeconds = savedInstanceState.getBoolean(KEY_ENABLE_SECONDS);
@@ -930,6 +938,7 @@ public class TimePickerDialog extends DialogFragment implements
             outState.putBoolean(KEY_VIBRATE, mVibrate);
             outState.putBoolean(KEY_DISMISS, mDismissOnPause);
             outState.putParcelableArray(KEY_SELECTABLE_TIMES, mSelectableTimes);
+            outState.putParcelableArray(KEY_UNSELECTABLE_TIMES, mUnselectableTimes);
             outState.putParcelable(KEY_MIN_TIME, mMinTime);
             outState.putParcelable(KEY_MAX_TIME, mMaxTime);
             outState.putBoolean(KEY_ENABLE_SECONDS, mEnableSeconds);
@@ -983,7 +992,10 @@ public class TimePickerDialog extends DialogFragment implements
 
         if(mMaxTime != null && mMaxTime.compareTo(current) < 0) return true;
 
-        if(mSelectableTimes != null) return !Arrays.asList(mSelectableTimes).contains(current);
+        if(mSelectableTimes != null)
+            return !Arrays.asList(mSelectableTimes).contains(current);
+        else if (mUnselectableTimes != null)
+            return Arrays.asList(mUnselectableTimes).contains(current);
 
         return false;
     }
@@ -1002,6 +1014,11 @@ public class TimePickerDialog extends DialogFragment implements
                     if(t.getHour() == current.getHour()) return false;
                 }
                 return true;
+            } else if(mUnselectableTimes != null) {
+                for(Timepoint t : mUnselectableTimes) {
+                    if(t.getHour() == current.getHour()) return true;
+                }
+                return false;
             }
 
             return false;
@@ -1022,6 +1039,11 @@ public class TimePickerDialog extends DialogFragment implements
                     if(t.getHour() == current.getHour() && t.getMinute() == current.getMinute()) return false;
                 }
                 return true;
+            } else if(mUnselectableTimes != null) {
+                for(Timepoint t : mUnselectableTimes) {
+                    if(t.getHour() == current.getHour() && t.getMinute() == current.getMinute()) return true;
+                }
+                return false;
             }
 
             return false;
@@ -1038,6 +1060,9 @@ public class TimePickerDialog extends DialogFragment implements
         if(mSelectableTimes != null) {
             for(Timepoint t : mSelectableTimes) if(t.compareTo(midday) < 0) return false;
             return true;
+        } else if (mUnselectableTimes != null) {
+            for(Timepoint t : mUnselectableTimes) if(t.compareTo(midday) < 0) return true;
+            return false;
         }
 
         return false;
@@ -1052,6 +1077,9 @@ public class TimePickerDialog extends DialogFragment implements
         if(mSelectableTimes != null) {
             for(Timepoint t : mSelectableTimes) if(t.compareTo(midday) >= 0) return false;
             return true;
+        } else if (mUnselectableTimes != null) {
+            for(Timepoint t : mUnselectableTimes) if(t.compareTo(midday) >= 0) return true;
+            return false;
         }
 
         return false;
@@ -1078,6 +1106,20 @@ public class TimePickerDialog extends DialogFragment implements
             for(Timepoint t : mSelectableTimes) {
                 if(type == Timepoint.TYPE.MINUTE && t.getHour() != time.getHour()) continue;
                 if(type == Timepoint.TYPE.SECOND && t.getHour() != time.getHour() && t.getMinute() != time.getMinute()) continue;
+                int newDistance = Math.abs(t.compareTo(time));
+                if(newDistance < currentDistance) {
+                    currentDistance = newDistance;
+                    output = t;
+                }
+                else break;
+            }
+            return output;
+        } else if (mUnselectableTimes != null) {
+            int currentDistance = Integer.MAX_VALUE;
+            Timepoint output = time;
+            for(Timepoint t : mUnselectableTimes) {
+                if(type == Timepoint.TYPE.MINUTE && t.getHour() == time.getHour()) continue;
+                if(type == Timepoint.TYPE.SECOND && t.getHour() == time.getHour() && t.getMinute() == time.getMinute()) continue;
                 int newDistance = Math.abs(t.compareTo(time));
                 if(newDistance < currentDistance) {
                     currentDistance = newDistance;
